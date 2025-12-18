@@ -13,7 +13,6 @@ class GoogleSheetsService
   def sync_to_sheet
     products = Product.all.order(:id)
     
-    # Eski verileri temizle (Başlık hariç)
     if @worksheet.num_rows > 1
       @worksheet.delete_rows(2, @worksheet.num_rows - 1)
     end
@@ -28,7 +27,7 @@ class GoogleSheetsService
       @worksheet[row, 4] = product.price
       @worksheet[row, 5] = product.stock
       @worksheet[row, 6] = product.category
-      @worksheet[row, 7] = "" # Error kolonu
+      @worksheet[row, 7] = "" 
     end
 
     @worksheet.save
@@ -36,38 +35,49 @@ class GoogleSheetsService
 
   # Sheet -> DB (Import)
   def sync_from_sheet
+    # Cache sorununu çözmek için reload
+    @worksheet.reload
+    
     return if @worksheet.num_rows < 2
-    sheet_ids = []
+    
+    sheet_ids = [] # Silinmeyeceklerin listesi (Whitelist)
 
     (2..@worksheet.num_rows).each do |row|
-      id = @worksheet[row, 1]
-      
-      # Hücreleri oku ve attribute hash'i oluştur
+      id_val = @worksheet[row, 1]
+      name_val = @worksheet[row, 2]
+
+      # Boş satırları atla
+      next if name_val.blank?
+
       attrs = { 
         name:        @worksheet[row, 2], 
-        description: @worksheet[row, 3],
+        description: @worksheet[row, 3], 
         price:       @worksheet[row, 4], 
         stock:       @worksheet[row, 5], 
         category:    @worksheet[row, 6] 
       }
 
-      if id.present?
-        product = Product.find_by(id: id)
+      if id_val.present?
+        # --- GÜNCELLEME SENARYOSU ---
+        product = Product.find_by(id: id_val)
         if product
-          sheet_ids << product.id
+          sheet_ids << product.id # Mevcut ID'yi koruma altına al
           update_product(product, attrs, row)
         else
-          # ID var ama DB'de yoksa yarat
-          create_product(attrs, row)
+          # ID var ama DB'de yok -> Yeni yarat
+          new_product = create_product(attrs, row)
+          sheet_ids << new_product.id if new_product.persisted? # Yeni ID'yi koruma altına al!
         end
       else
-        # ID yoksa yeni yarat
-        create_product(attrs, row)
+        # --- YENİ KAYIT SENARYOSU ---
+        new_product = create_product(attrs, row)
+        sheet_ids << new_product.id if new_product.persisted? # Yeni ID'yi koruma altına al!
       end
     end
 
-    # Sheet'ten silinenleri DB'den uçur
+    # Whitelist'te olmayanları sil
     Product.where.not(id: sheet_ids.compact).destroy_all
+    
     @worksheet.save
   end
 
@@ -85,7 +95,7 @@ class GoogleSheetsService
 
   def update_product(product, attrs, row)
     if product.update(attrs)
-      @worksheet[row, 7] = "" 
+      @worksheet[row, 7] = ""
     else
       @worksheet[row, 7] = product.errors.full_messages.join(", ")
     end
@@ -94,10 +104,12 @@ class GoogleSheetsService
   def create_product(attrs, row)
     product = Product.new(attrs)
     if product.save
-      @worksheet[row, 1] = product.id # ID'yi geri yaz
+      @worksheet[row, 1] = product.id # ID'yi Sheet'e yaz
       @worksheet[row, 7] = ""
     else
       @worksheet[row, 7] = product.errors.full_messages.join(", ")
     end
+    
+    return product # Ürün nesnesini geri döndür ki ID'sini alabilelim!
   end
 end
