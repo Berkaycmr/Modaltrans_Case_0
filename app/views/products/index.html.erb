@@ -1,3 +1,10 @@
+<div style="margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 8px;">
+  <h3>Sync Operations</h3>
+  <div style="display: flex; gap: 10px;">
+    <%= button_to "Sync to Sheet (Export)", sync_to_sheet_products_path, method: :post %>
+    <%= button_to "Sync from Sheet (Import)", sync_from_sheet_products_path, method: :post %>
+  </div>
+</div>
 <p style="color: green"><%= notice %></p>
 
 <% content_for :title, "Products" %>
