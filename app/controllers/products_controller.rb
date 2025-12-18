@@ -56,7 +56,20 @@ class ProductsController < ApplicationController
       format.json { head :no_content }
     end
   end
+  
+  def sync_to_sheet
+    GoogleSheetsService.new.sync_to_sheet
+    redirect_to products_path, notice: "Database successfully synced to Google Sheet."
+  rescue StandardError => e
+    redirect_to products_path, alert: "Sync failed: #{e.message}"
+  end
 
+  def sync_from_sheet
+    GoogleSheetsService.new.sync_from_sheet
+    redirect_to products_path, notice: "Google Sheet successfully synced to Database."
+  rescue StandardError => e
+    redirect_to products_path, alert: "Sync failed: #{e.message}"
+  end
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_product
@@ -67,4 +80,6 @@ class ProductsController < ApplicationController
     def product_params
       params.expect(product: [ :name, :description, :price, :stock, :category ])
     end
+
+    
 end
