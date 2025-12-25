@@ -1,12 +1,41 @@
 require "google_drive"
+require "stringio" 
 
 class GoogleSheetsService
   SHEET_ID = "1JMjHg3KxN1JvpESWKcwm5CSRTI1glFhUNJnJ_aa2aQE"
   
   def initialize
-    @session = GoogleDrive::Session.from_service_account_key("config/service_account.json")
+    # Kimlik bilgilerini getiren yardımcı metodu çağırıyoruz
+    @session = GoogleDrive::Session.from_service_account_key(google_credentials)
     @spreadsheet = @session.spreadsheet_by_key(SHEET_ID)
     @worksheet = @spreadsheet.worksheets.first
+  rescue => e
+    # Hata durumunda loglama (CI tarafında neden patladığını görmek için)
+    Rails.logger.error "Google Drive Bağlantı Hatası: #{e.message}"
+    raise e
+  end
+
+  # ... (sync_to_sheet ve sync_from_sheet metodların aynı kalabilir)
+
+  private
+
+  def google_credentials
+    # 1. Önce Environment Variable kontrol et (GitHub Actions ve Production için en iyisi)
+    if ENV['GOOGLE_SERVICE_ACCOUNT_JSON'].present?
+      # google_drive gem'i dosya yolu yerine bir IO nesnesi (StringIO) kabul eder
+      return StringIO.new(ENV['GOOGLE_SERVICE_ACCOUNT_JSON'])
+    end
+
+    # 2. Eğer ENV yoksa yerel dosyaya bak (Local development için)
+    file_path = Rails.root.join("config", "service_account.json")
+    if File.exist?(file_path)
+      return file_path.to_s
+    end
+
+    # 3. İkisi de yoksa hata fırlat
+    raise "Google Service Account key bulunamadı! " \
+          "Lütfen ENV['GOOGLE_SERVICE_ACCOUNT_JSON'] tanımlayın veya " \
+          "config/service_account.json dosyasını oluşturun."
   end
 
   # DB -> Sheet (Export)
