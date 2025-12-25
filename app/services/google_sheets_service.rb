@@ -1,9 +1,9 @@
 require "google_drive"
-require "stringio" 
+require "stringio"
 
 class GoogleSheetsService
   SHEET_ID = "1JMjHg3KxN1JvpESWKcwm5CSRTI1glFhUNJnJ_aa2aQE"
-  
+
   def initialize
     # Kimlik bilgilerini getiren yardımcı metodu çağırıyoruz
     @session = GoogleDrive::Session.from_service_account_key(google_credentials)
@@ -21,9 +21,9 @@ class GoogleSheetsService
 
   def google_credentials
     # 1. Önce Environment Variable kontrol et (GitHub Actions ve Production için en iyisi)
-    if ENV['GOOGLE_SERVICE_ACCOUNT_JSON'].present?
+    if ENV["GOOGLE_SERVICE_ACCOUNT_JSON"].present?
       # google_drive gem'i dosya yolu yerine bir IO nesnesi (StringIO) kabul eder
-      return StringIO.new(ENV['GOOGLE_SERVICE_ACCOUNT_JSON'])
+      return StringIO.new(ENV["GOOGLE_SERVICE_ACCOUNT_JSON"])
     end
 
     # 2. Eğer ENV yoksa yerel dosyaya bak (Local development için)
@@ -41,7 +41,7 @@ class GoogleSheetsService
   # DB -> Sheet (Export)
   def sync_to_sheet
     products = Product.all.order(:id)
-    
+
     if @worksheet.num_rows > 1
       @worksheet.delete_rows(2, @worksheet.num_rows - 1)
     end
@@ -56,7 +56,7 @@ class GoogleSheetsService
       @worksheet[row, 4] = product.price
       @worksheet[row, 5] = product.stock
       @worksheet[row, 6] = product.category
-      @worksheet[row, 7] = "" 
+      @worksheet[row, 7] = ""
     end
 
     @worksheet.save
@@ -66,9 +66,9 @@ class GoogleSheetsService
   def sync_from_sheet
     # Cache sorununu çözmek için reload
     @worksheet.reload
-    
+
     return if @worksheet.num_rows < 2
-    
+
     sheet_ids = [] # Silinmeyeceklerin listesi (Whitelist)
 
     (2..@worksheet.num_rows).each do |row|
@@ -78,12 +78,12 @@ class GoogleSheetsService
       # Boş satırları atla
       next if name_val.blank?
 
-      attrs = { 
-        name:        @worksheet[row, 2], 
-        description: @worksheet[row, 3], 
-        price:       @worksheet[row, 4], 
-        stock:       @worksheet[row, 5], 
-        category:    @worksheet[row, 6] 
+      attrs = {
+        name:        @worksheet[row, 2],
+        description: @worksheet[row, 3],
+        price:       @worksheet[row, 4],
+        stock:       @worksheet[row, 5],
+        category:    @worksheet[row, 6]
       }
 
       if id_val.present?
@@ -106,7 +106,7 @@ class GoogleSheetsService
 
     # Whitelist'te olmayanları sil
     Product.where.not(id: sheet_ids.compact).destroy_all
-    
+
     @worksheet.save
   end
 
@@ -138,7 +138,7 @@ class GoogleSheetsService
     else
       @worksheet[row, 7] = product.errors.full_messages.join(", ")
     end
-    
-    return product # Ürün nesnesini geri döndür ki ID'sini alabilelim!
+
+    product # Ürün nesnesini geri döndür ki ID'sini alabilelim!
   end
 end

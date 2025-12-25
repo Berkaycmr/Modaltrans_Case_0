@@ -56,7 +56,7 @@ class ProductsController < ApplicationController
       format.json { head :no_content }
     end
   end
-  
+
   def sync_to_sheet
     GoogleSheetsService.new.sync_to_sheet
     redirect_to products_path, notice: "Database successfully synced to Google Sheet."
@@ -80,6 +80,4 @@ class ProductsController < ApplicationController
     def product_params
       params.expect(product: [ :name, :description, :price, :stock, :category ])
     end
-
-    
 end
